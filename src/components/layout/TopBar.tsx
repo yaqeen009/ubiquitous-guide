@@ -8,7 +8,8 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { Brand } from "./Brand";
 import { ThemeToggle } from "./ThemeToggle";
 import { buildCsvFilename, datasetToCsv } from "@/data/export";
-import { parseVisualizationConfig, serializeConfiguration } from "@/data/configuration";
+import { parseWorkspaceConfiguration, serializeWorkspace } from "@/workspace/configuration";
+import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { downloadText, formatCompact, safeFilename } from "@/lib/utils";
 import { useDataStore } from "@/store/useDataStore";
 import { useUiStore } from "@/store/useUiStore";
@@ -19,6 +20,10 @@ export function TopBar({ view }: { view: DatasetView }) {
   const applyConfig = useDataStore((state) => state.applyConfig);
   const clearFilters = useDataStore((state) => state.clearFilters);
   const setToast = useDataStore((state) => state.setToast);
+  const replaceWorkspace = useWorkspaceStore((state) => state.replaceWorkspace);
+  const setSpatialMode = useWorkspaceStore((state) => state.setSpatialMode);
+  const spatialMode = useWorkspaceStore((state) => state.spatialMode);
+  const workspace = useWorkspaceStore((state) => state);
   const setInspectorTab = useUiStore((state) => state.setInspectorTab);
   const setMobilePanel = useUiStore((state) => state.setMobilePanel);
   const setImportOpen = useUiStore((state) => state.setImportOpen);
@@ -37,9 +42,20 @@ export function TopBar({ view }: { view: DatasetView }) {
   };
 
   const saveConfig = () => {
-    const json = serializeConfiguration(config, dataset);
-    downloadText(`${safeFilename(dataset.name)}-view.json`, json, "application/json;charset=utf-8");
-    setToast("Visualization configuration saved as JSON.");
+    const json = serializeWorkspace(
+      {
+        panels: workspace.panels,
+        layout: workspace.layout,
+        activePanelId: workspace.activePanelId,
+        maximizedPanelId: workspace.maximizedPanelId,
+        splitRatio: workspace.splitRatio,
+      },
+      config,
+      dataset,
+      spatialMode,
+    );
+    downloadText(`${safeFilename(dataset.name)}-workspace.json`, json, "application/json;charset=utf-8");
+    setToast("Workspace configuration saved as JSON. Uploaded data is not included.");
   };
 
   const importConfig = async (file: File | undefined) => {
@@ -47,16 +63,18 @@ export function TopBar({ view }: { view: DatasetView }) {
     try {
       const text = await file.text();
       const parsed: unknown = JSON.parse(text);
-      const result = parseVisualizationConfig(parsed, dataset);
+      const result = parseWorkspaceConfiguration(parsed, dataset);
       if (!result.ok) {
         setConfigErrors(result.errors);
         return;
       }
-      applyConfig(result.config);
+      applyConfig(result.visualization);
+      replaceWorkspace(result.workspace, dataset, result.warnings, result.visualization.hiddenColumns);
+      setSpatialMode(result.spatialMode);
       setToast(
         result.warnings.length > 0
-          ? `Configuration applied with ${result.warnings.length} note${result.warnings.length === 1 ? "" : "s"}.`
-          : "Visualization configuration applied.",
+          ? `Workspace applied with ${result.warnings.length} note${result.warnings.length === 1 ? "" : "s"}.`
+          : "Workspace configuration applied.",
       );
     } catch (error) {
       setConfigErrors([
@@ -134,17 +152,17 @@ export function TopBar({ view }: { view: DatasetView }) {
             </Button>
           </span>
         </Tooltip>
-        <Tooltip content="Save axis mappings, color, size, filters, and display settings as JSON">
-          <Button variant="ghost" size="iconSm" onClick={saveConfig} aria-label="Save visualization configuration">
+        <Tooltip content="Save open views, layout, mappings, filters, time ranges, and options as JSON">
+          <Button variant="ghost" size="iconSm" onClick={saveConfig} aria-label="Save workspace configuration">
             <FileJson size={15} />
           </Button>
         </Tooltip>
-        <Tooltip content="Load a previously saved configuration (validated before applying)">
+        <Tooltip content="Load a workspace JSON file (validated before applying)">
           <Button
             variant="ghost"
             size="iconSm"
             onClick={() => configInputRef.current?.click()}
-            aria-label="Load visualization configuration"
+            aria-label="Load workspace configuration"
           >
             <FileUp size={15} />
           </Button>
@@ -154,7 +172,7 @@ export function TopBar({ view }: { view: DatasetView }) {
           type="file"
           accept=".json,application/json"
           className="sr-only"
-          aria-label="Choose a visualization configuration JSON file"
+          aria-label="Choose a workspace configuration JSON file"
           onChange={(event) => {
             void importConfig(event.target.files?.[0]);
             event.target.value = "";

@@ -141,6 +141,7 @@ export function parseCsv(text: string, filename: string, options: ParseOptions =
     id,
     raw,
     numeric: analyses.map((analysis) => analysis.parsed[id] ?? null),
+    dates: analyses.map((analysis) => analysis.parsedDates[id] ?? null),
   }));
 
   const searchIndex = rows.map((row) => row.raw.map((cell) => cell.trim().toLowerCase()).join(" "));

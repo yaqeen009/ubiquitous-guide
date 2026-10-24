@@ -19,8 +19,8 @@ export function HelpDialog() {
     <Dialog
       open={open}
       onOpenChange={setOpen}
-      title="Exploring in three dimensions"
-      description="A practical guide to the comparison, the controls, and the limits of this workspace."
+      title="Exploring the multiview workspace"
+      description="A practical guide to the views, linked state, layouts, and limits of this workspace."
       footer={
         <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
           Close guide
@@ -30,59 +30,75 @@ export function HelpDialog() {
       <div className="space-y-5">
         <div className="rounded-sm border border-border bg-surface-2 p-3">
           <p className="editorial text-[15px] leading-snug text-ink">
-            Does viewing this dataset in three dimensions help you discover relationships that are harder to see in two
-            dimensions?
+            Does viewing this dataset in three dimensions reveal relationships that are harder to see in two?
           </p>
           <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
             Not inherently. 3D adds a third variable and spatial depth, but it also adds occlusion and perspective
-            distortion. The 2D view is often better for precise reading and comparison; 3D is useful for spotting
-            clusters, gradients, and three-way structure. Switch freely and judge per task.
+            distortion. The conventional 2D views are the primary workspace; 3D is one option among several. Switch
+            freely and judge per task.
           </p>
         </div>
 
-        <Section title="Navigating the 3D scene">
+        <Section title="Opening and arranging views">
+          <ul className="list-disc space-y-1 pl-4">
+            <li>Choose <strong>Add view</strong> to browse the gallery. Unavailable views state the required fields and suggest a compatible alternative.</li>
+            <li>Up to eight views can be open. Use <strong>Single</strong>, <strong>Columns</strong>, or <strong>Grid</strong> to change the arrangement.</li>
+            <li>Each panel can be maximized, restored, reordered, or closed. Closing every view keeps the dataset loaded.</li>
+            <li>The active panel is outlined. Its mappings and options appear in the Configure panel.</li>
+          </ul>
+        </Section>
+
+        <Section title="Linked state: filters, selection, and color">
+          <ul className="list-disc space-y-1 pl-4">
+            <li>Shared filters apply to every view, the count, statistics, and CSV export. Missing values never become zero.</li>
+            <li>Clicking a point or row selects a record everywhere it can be shown. Checkboxes in the table add records to the shared multi-selection.</li>
+            <li>A selection is not cleared when a filter hides it. The banner reports hidden selected records and offers to clear the filter or the selection.</li>
+            <li>Histogram bars apply range filters, not record selection. Parallel-coordinate brushing can select or filter the matching records.</li>
+            <li>Category colors come from one shared mapping, including a neutral color for missing categories.</li>
+          </ul>
+        </Section>
+
+        <Section title="Time series, correlation, and brushing">
+          <ul className="list-disc space-y-1 pl-4">
+            <li>The time-series view needs one date/timestamp field and one numeric measure. It does not bucket or average timestamps. Points with duplicate timestamps stay separate, and their connecting line is omitted.</li>
+            <li>Time-range controls and shared time filters use inclusive bounds. Invalid dates and missing measures are counted separately.</li>
+            <li>The correlation heatmap uses Pearson correlation over pairwise-complete observations. A blank cell means the pair had too few values or no variation; it is not zero. Large datasets use a deterministic sample of up to 2,000 rows for the calculation.</li>
+            <li>Parallel-coordinate axes are min–max normalized from the full dataset. Brushing uses original units. Lines are sampled for drawing, but brushing and selection use every complete filtered record.</li>
+          </ul>
+        </Section>
+
+        <Section title="The 3D scene">
           <ul className="list-disc space-y-1 pl-4">
             <li>Drag to orbit. Scroll or pinch to zoom. Right-drag or two-finger drag to pan.</li>
             <li>Click a point to select it. Click empty space or press Escape to clear the selection.</li>
             <li>Use the camera button to return to the default angle. Press R when the plot is focused.</li>
-            <li>The orientation gizmo in the bottom-right shows the current axis directions.</li>
-            <li>Every rendered point corresponds to a real dataset row. Missing axis values hide that row and are counted under the plot.</li>
+            <li>Every rendered point corresponds to a real dataset row. Rows with missing mapped values are not plotted and are counted below the plot.</li>
           </ul>
         </Section>
 
-        <Section title="Reading the encodings">
+        <Section title="Saving and restoring a workspace">
           <ul className="list-disc space-y-1 pl-4">
-            <li>Each mapped axis uses an independent linear min–max scale over the full dataset, mapped to [-1, 1]. Constant columns collapse to the center.</li>
-            <li>Color can be categorical (stable palette, top 11 values plus “Other”) or numeric (viridis scale). Missing values use a neutral gray.</li>
-            <li>Size encodes a numeric variable with a linear radius multiplier. Use it sparingly; it can imply volume in 3D.</li>
-            <li>Selection uses a larger marker and a ring in both views, never color alone.</li>
+            <li>Save a version 2 workspace JSON containing open views, layout, mappings, shared color/filters, time ranges, and view options. The dataset itself is not embedded.</li>
+            <li>Import validates the version, types, fields, and options before changing anything. Unknown view types are dropped with a warning, and version 1 configuration files are upgraded.</li>
+            <li>The workspace arrangement and encodings are remembered locally for the matching dataset signature. Uploaded datasets are never persisted.</li>
           </ul>
         </Section>
 
-        <Section title="Comparing views">
+        <Section title="Experimental spatial mode">
           <ul className="list-disc space-y-1 pl-4">
-            <li>Choose “Compare” for linked 3D and 2D views. Both use the same filtered rows, color mapping, and selection.</li>
-            <li>The 2D axes are independent of the 3D Z axis. Map them in the Configure panel.</li>
-            <li>Use the 2D view for exact values on hover and for unambiguous ordering. Use 3D to inspect whether a third variable separates groups.</li>
-            <li>Filters, statistics, the table, and CSV export always use the full filtered subset — not the sampled rendered points.</li>
+            <li>The orbit button opens a clearly labelled experimental Three.js workspace with panel cards placed in a navigable scene.</li>
+            <li>Live previews are non-interactive. 3D scatter opens in the standard workspace. Performance at higher view counts has not been verified.</li>
+            <li>Use <strong>Standard workspace</strong> to return. This mode is optional and not required for any analysis.</li>
           </ul>
         </Section>
 
-        <Section title="Keyboard and accessibility">
+        <Section title="Keyboard, accessibility, and limits">
           <ul className="list-disc space-y-1 pl-4">
-            <li>All controls are reachable by keyboard with visible focus rings.</li>
-            <li>The dataset table rows are focusable; press Enter or Space to inspect a record.</li>
-            <li>The 2D view is fully usable without WebGL and exposes hover values plus a selectable table alternative.</li>
-            <li>Reduced-motion preferences disable interface transitions.</li>
-          </ul>
-        </Section>
-
-        <Section title="Limits and privacy">
-          <ul className="list-disc space-y-1 pl-4">
-            <li>Files are parsed and plotted entirely in this browser tab. Nothing is uploaded.</li>
-            <li>Maximum import: 25 MB or 100,000 rows. 3D rendering is capped at 20,000 sampled points; 2D at 4,000.</li>
-            <li>Statistics, filtering, selection, and export use every filtered row, regardless of the render cap.</li>
-            <li>Theme preference is stored in localStorage. Datasets are not persisted.</li>
+            <li>Controls have visible focus rings. Inputs and selects keep normal keyboard behavior.</li>
+            <li>Escape clears the shared selection when focus is not inside a text field.</li>
+            <li>The 2D views are a complete alternative when WebGL is unavailable or difficult to use.</li>
+            <li>Maximum import: 25 MB or 100,000 rows. Rendering is capped at 20,000 points in 3D and 4,000 in 2D; statistics, filtering, selection, and export use every filtered row.</li>
+            <li>Files are parsed and plotted entirely in this browser tab. Theme and workspace layout are stored locally; datasets are not.</li>
           </ul>
         </Section>
       </div>

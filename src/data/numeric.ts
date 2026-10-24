@@ -28,13 +28,56 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|
 const YEAR_FIRST_DATE = /^\d{4}\/\d{1,2}\/\d{1,2}$/;
 
 /**
- * Date-like detection. Deliberately conservative: only year-first formats are
- * accepted so that ambiguous values such as 03/04/2025 are not guessed.
+ * Parse a date-like cell to epoch milliseconds.
+ *
+ * Detection is deliberately conservative: only year-first formats are
+ * accepted, so ambiguous values such as 03/04/2025 are never guessed.
+ * Date-only ISO values are interpreted as UTC for deterministic results.
  */
-export function isDateLike(raw: string): boolean {
+export function parseDateValue(raw: string | null | undefined): number | null {
+  if (raw === null || raw === undefined) return null;
   const trimmed = raw.trim();
-  if (!ISO_DATE.test(trimmed) && !YEAR_FIRST_DATE.test(trimmed)) return false;
-  return Number.isFinite(Date.parse(trimmed.replace(/\//g, "-")));
+  if (trimmed === "") return null;
+  if (!ISO_DATE.test(trimmed) && !YEAR_FIRST_DATE.test(trimmed)) return null;
+  const normalized = trimmed.replace(/\//g, "-");
+  const value = Date.parse(normalized);
+  return Number.isFinite(value) ? value : null;
+}
+
+/** True when a cell is a supported, parseable year-first date or timestamp. */
+export function isDateLike(raw: string): boolean {
+  return parseDateValue(raw) !== null;
+}
+
+/** Human-readable date for labels and tooltips. */
+export function formatDateValue(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return new Date(value).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** Value for an `<input type="date">`, in local calendar terms. */
+export function dateInputValue(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "";
+  const date = new Date(value);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** Parse a date input value at local midnight. */
+export function parseDateInput(value: string): number | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return Number.isFinite(date.getTime()) ? date.getTime() : null;
 }
 
 /** Compact a number for labels without losing required precision. */

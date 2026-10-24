@@ -172,7 +172,27 @@ function parseFilters(value: unknown, errors: string[]): Filters {
     }
   }
 
-  return { search, numeric, categorical };
+  const time: NonNullable<Filters["time"]> = {};
+  if (value.time !== undefined) {
+    if (!isRecord(value.time)) {
+      errors.push("“filters.time” must be an object.");
+    } else {
+      for (const [name, range] of Object.entries(value.time)) {
+        const parsed = parseNumericFilter(range, name, errors);
+        if (parsed) {
+          if (!Number.isFinite(new Date(parsed.min).getTime()) || !Number.isFinite(new Date(parsed.max).getTime())) {
+            errors.push(`Time filter for “${name}” must contain valid epoch milliseconds.`);
+            continue;
+          }
+          time[name] = parsed;
+        }
+      }
+    }
+  }
+
+  const filters: Filters = { search, numeric, categorical };
+  if (Object.keys(time).length > 0) filters.time = time;
+  return filters;
 }
 
 /**
@@ -334,6 +354,11 @@ export function parseVisualizationConfig(input: unknown, dataset?: Dataset): Con
     for (const name of Object.keys(config.filters.categorical)) {
       if (!byName.has(name)) errors.push(`Categorical filter references missing column “${name}”.`);
     }
+    for (const name of Object.keys(config.filters.time ?? {})) {
+      const column = byName.get(name);
+      if (!column) errors.push(`Time filter references missing column “${name}”.`);
+      else if (column.type !== "date") errors.push(`Time filter column “${name}” is not a date column.`);
+    }
     for (const name of config.hiddenColumns) {
       if (!byName.has(name)) errors.push(`Excluded column “${name}” does not exist in this dataset.`);
     }
@@ -344,7 +369,7 @@ export function parseVisualizationConfig(input: unknown, dataset?: Dataset): Con
     );
     for (const name of config.hiddenColumns) {
       if (mapped.has(name)) errors.push(`Column “${name}” is excluded but still mapped to a visual role.`);
-      if (config.filters.numeric[name] || (config.filters.categorical[name]?.length ?? 0) > 0) {
+      if (config.filters.numeric[name] || (config.filters.categorical[name]?.length ?? 0) > 0 || config.filters.time?.[name]) {
         errors.push(`Column “${name}” is excluded but still has an active filter.`);
       }
     }

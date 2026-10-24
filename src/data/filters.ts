@@ -1,15 +1,24 @@
 import type { DataColumn, DataRow, Dataset, Filters } from "@/types";
 import { MISSING_CATEGORY } from "./colors";
+import { parseDateValue } from "./numeric";
 
 export function createEmptyFilters(): Filters {
   return { search: "", numeric: {}, categorical: {} };
+}
+
+/** Epoch milliseconds for a row's date cell, falling back to `raw`. */
+export function rowDateValue(row: DataRow, column: DataColumn): number | null {
+  const parsed = row.dates?.[column.index];
+  if (parsed !== undefined) return parsed;
+  return parseDateValue(row.raw[column.index] ?? "");
 }
 
 /** Total number of active filter groups (search counts as one). */
 export function activeFilterCount(filters: Filters): number {
   const numeric = Object.keys(filters.numeric).length;
   const categorical = Object.values(filters.categorical).filter((values) => values.length > 0).length;
-  return numeric + categorical + (filters.search.trim() === "" ? 0 : 1);
+  const time = Object.keys(filters.time ?? {}).length;
+  return numeric + categorical + time + (filters.search.trim() === "" ? 0 : 1);
 }
 
 export function hasActiveFilters(filters: Filters): boolean {
@@ -47,6 +56,14 @@ export function rowMatchesFilters(row: DataRow, dataset: Dataset, filters: Filte
     if (!column) continue;
     const raw = (row.raw[column.index] ?? "").trim();
     if (!categoryMatches(raw, selected)) return false;
+  }
+
+  for (const [name, range] of Object.entries(filters.time ?? {})) {
+    const column = dataset.columns.find((candidate) => candidate.name === name);
+    if (!column) continue;
+    const value = rowDateValue(row, column);
+    if (value === null) return false;
+    if (value < range.min || value > range.max) return false;
   }
 
   const terms = filters.search.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -104,4 +121,10 @@ export function removeCategoricalFilter(filters: Filters, column: string): Filte
   const next = { ...filters.categorical };
   delete next[column];
   return { ...filters, categorical: next };
+}
+
+export function removeTimeFilter(filters: Filters, column: string): Filters {
+  const next = { ...(filters.time ?? {}) };
+  delete next[column];
+  return { ...filters, time: next };
 }

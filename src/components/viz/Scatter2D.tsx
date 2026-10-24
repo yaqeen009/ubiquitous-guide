@@ -28,9 +28,7 @@ interface HoverInfo {
   point: ScatterPoint;
   x: number;
   y: number;
-}
-
-function domainFor(column: DataColumn | null | undefined): [number, number] {
+}function domainFor(column: DataColumn | null | undefined): [number, number] {
   if (!column || column.min === null || column.max === null) return [-1, 1];
   if (column.min === column.max) return [column.min - 1, column.max + 1];
   return [column.min, column.max];
@@ -42,16 +40,16 @@ function DotShape({
   cx,
   cy,
   payload,
-  selectedId,
+  selectedIds,
   onSelect,
   onHover,
 }: DotShapeProps & {
-  selectedId: number | null;
+  selectedIds: Set<number>;
   onSelect: (id: number) => void;
   onHover: (hover: HoverInfo | null) => void;
 }) {
   if (!payload || cx === undefined || cy === undefined) return <g />;
-  const selected = payload.id === selectedId;
+  const selected = selectedIds.has(payload.id);
   const radius = selected ? payload.r + 1.5 : payload.r;
   return (
     <g>
@@ -97,11 +95,12 @@ function DotShape({
 export function Scatter2D({ encoding }: { encoding: ScatterEncoding }) {
   const dataset = useDataStore((state) => state.dataset);
   const config = useDataStore((state) => state.config);
-  const selectedRowId = useDataStore((state) => state.selectedRowId);
+  const selectedRowIds = useDataStore((state) => state.selectedRowIds);
   const selectRow = useDataStore((state) => state.selectRow);
   const setInspectorTab = useUiStore((state) => state.setInspectorTab);
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const selectedIds = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
 
   const xColumn = config?.twoD.x ? dataset?.columns.find((column) => column.name === config.twoD.x) ?? null : null;
   const yColumn = config?.twoD.y ? dataset?.columns.find((column) => column.name === config.twoD.y) ?? null : null;
@@ -208,7 +207,7 @@ export function Scatter2D({ encoding }: { encoding: ScatterEncoding }) {
               isAnimationActive={false}
               shape={
                 <DotShape
-                  selectedId={selectedRowId}
+                  selectedIds={selectedIds}
                   onSelect={(id) => {
                     selectRow(id);
                     setInspectorTab("record");

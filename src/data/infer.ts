@@ -1,10 +1,12 @@
 import type { CategoryCount, DataColumn, ColumnType } from "@/types";
-import { isDateLike, isMissingCell, parseNumericValue } from "./numeric";
+import { isDateLike, isMissingCell, parseDateValue, parseNumericValue } from "./numeric";
 
 /** Numeric values collected for one column, aligned to the input rows. */
 export interface ColumnAnalysis {
   column: DataColumn;
   parsed: (number | null)[];
+  /** Parsed epoch milliseconds for date-like cells (null elsewhere). */
+  parsedDates: (number | null)[];
 }
 
 function median(sorted: number[]): number | null {
@@ -38,6 +40,7 @@ export function analyzeColumn(name: string, index: number, cells: string[]): Col
   let dateLikeCount = 0;
   const numericValues: number[] = [];
   const parsed: (number | null)[] = new Array(cells.length).fill(null);
+  const parsedDates: (number | null)[] = new Array(cells.length).fill(null);
 
   for (let row = 0; row < cells.length; row += 1) {
     const cell = cells[row] ?? "";
@@ -55,7 +58,10 @@ export function analyzeColumn(name: string, index: number, cells: string[]): Col
     } else {
       invalidNumericCount += 1;
     }
-    if (isDateLike(trimmed)) dateLikeCount += 1;
+    if (isDateLike(trimmed)) {
+      dateLikeCount += 1;
+      parsedDates[row] = parseDateValue(trimmed);
+    }
   }
 
   const presentCount = nonEmpty.length;
@@ -110,7 +116,11 @@ export function analyzeColumn(name: string, index: number, cells: string[]): Col
         : [],
   };
 
-  return { column, parsed };
+  return {
+    column,
+    parsed,
+    parsedDates: type === "date" ? parsedDates : new Array(cells.length).fill(null),
+  };
 }
 
 /** Short explanation of the inference result, used in the column inspector. */

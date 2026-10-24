@@ -38,6 +38,12 @@ export interface DataRow {
    * columns are populated; all other entries are null.
    */
   numeric: (number | null)[];
+  /**
+   * Parsed epoch milliseconds for date-like columns, aligned with
+   * `Dataset.columns`. Optional so lightweight test fixtures and older saved
+   * data remain valid; consumers fall back to parsing `raw` when absent.
+   */
+  dates?: (number | null)[];
 }
 
 export interface Dataset {
@@ -59,12 +65,17 @@ export interface NumericFilter {
   max: number;
 }
 
+/** Epoch-millisecond range applied to a date/timestamp column. */
+export type TimeFilter = NumericFilter;
+
 export interface Filters {
   search: string;
   /** Only columns with an active range are present. */
   numeric: Record<string, NumericFilter>;
   /** Empty arrays mean "no categorical restriction". */
   categorical: Record<string, string[]>;
+  /** Optional epoch-millisecond ranges for date columns. */
+  time?: Record<string, TimeFilter>;
 }
 
 export type ColorMode = "none" | "numeric" | "categorical";
@@ -111,6 +122,64 @@ export interface SavedConfiguration extends VisualizationConfig {
   datasetName: string;
   columnNames: string[];
   savedAt: string;
+}
+
+/* ------------------------------------------------------------------ *
+ * Multiview workspace
+ * ------------------------------------------------------------------ */
+
+export type VisualizationId =
+  | "scatter3d"
+  | "scatter2d"
+  | "table"
+  | "timeseries"
+  | "histogram"
+  | "correlation"
+  | "parallel";
+
+export type VisualizationCategory = "Spatial" | "Distribution" | "Relationship" | "Temporal" | "Tabular";
+
+/**
+ * How an interaction maps into the shared selection state.
+ *
+ * - `record`: one unambiguous record per interaction.
+ * - `multiple`: a batch of records (for example brushing).
+ * - `filter`: applies a range filter; it does not select records.
+ * - `none`: no record-level selection (aggregate or purely visual output).
+ */
+export type SelectionSemantics = "record" | "multiple" | "filter" | "none";
+
+export type ViewOptionValue = string | number | boolean | null;
+
+/** One open view. Field names are visualization-specific and validated by the registry. */
+export interface ViewInstance {
+  id: string;
+  type: VisualizationId;
+  title?: string;
+  fields: Record<string, string | null>;
+  options: Record<string, ViewOptionValue>;
+}
+
+export type WorkspaceLayout = "single" | "columns" | "grid";
+
+export interface WorkspaceStateSnapshot {
+  panels: ViewInstance[];
+  layout: WorkspaceLayout;
+  activePanelId: string | null;
+  maximizedPanelId: string | null;
+  /** Fraction of the available width given to the first pane in `columns` layout. */
+  splitRatio: number;
+}
+
+/** Version 2 workspace export. Embeds shared analytical settings, never the data. */
+export interface SavedWorkspace extends WorkspaceStateSnapshot {
+  kind: "dataspace-workspace";
+  version: 2;
+  datasetName: string;
+  columnNames: string[];
+  savedAt: string;
+  visualization: VisualizationConfig;
+  spatialMode: boolean;
 }
 
 export interface ImportIssue {

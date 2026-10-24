@@ -13,7 +13,7 @@ import type {
 import { parseCsv, validateCsvFile, CsvImportError } from "@/data/parse";
 import { createDefaultConfig } from "@/data/configuration";
 import { MAX_FILE_BYTES } from "@/data/limits";
-import { createEmptyFilters, removeCategoricalFilter, removeNumericFilter, toggleCategory } from "@/data/filters";
+import { createEmptyFilters, removeCategoricalFilter, removeNumericFilter, removeTimeFilter, toggleCategory } from "@/data/filters";
 import { loadDemoDataset } from "@/data/demo";
 
 export type LoadStatus = "empty" | "parsing" | "ready" | "error";
@@ -26,6 +26,8 @@ interface DataSpaceState {
   issues: ImportIssue[];
   config: VisualizationConfig | null;
   selectedRowId: number | null;
+  /** All selected record identifiers; `selectedRowId` is the primary record. */
+  selectedRowIds: number[];
   cameraResetToken: number;
   theme: Theme;
   toast: string | null;
@@ -49,6 +51,8 @@ interface DataSpaceState {
   setSearch: (search: string) => void;
   setNumericFilter: (column: string, min: number, max: number) => void;
   clearNumericFilter: (column: string) => void;
+  setTimeFilter: (column: string, min: number, max: number) => void;
+  clearTimeFilter: (column: string) => void;
   toggleCategoricalFilter: (column: string, value: string) => void;
   clearCategoricalFilter: (column: string) => void;
   clearFilters: () => void;
@@ -58,6 +62,8 @@ interface DataSpaceState {
   toggleColumnExclusion: (column: string) => void;
 
   selectRow: (id: number | null) => void;
+  selectRows: (ids: number[]) => void;
+  toggleRowSelection: (id: number) => void;
   requestCameraReset: () => void;
 
   setTheme: (theme: Theme) => void;
@@ -98,6 +104,7 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
   issues: [],
   config: null,
   selectedRowId: null,
+  selectedRowIds: [],
   cameraResetToken: 0,
   theme: readInitialTheme(),
   toast: null,
@@ -111,6 +118,7 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
       issues: [],
       config: createDefaultConfig(dataset),
       selectedRowId: null,
+      selectedRowIds: [],
     });
   },
 
@@ -145,6 +153,7 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
         issues: result.issues,
         config: createDefaultConfig(result.dataset),
         selectedRowId: null,
+        selectedRowIds: [],
       });
     } catch (error) {
       set({
@@ -171,6 +180,7 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
       issues: [],
       config: null,
       selectedRowId: null,
+      selectedRowIds: [],
       toast: null,
     }),
 
@@ -241,6 +251,23 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
     set({ config: { ...config, filters: removeNumericFilter(config.filters, column) } });
   },
 
+  setTimeFilter: (column, min, max) => {
+    const config = get().config;
+    if (!config) return;
+    set({
+      config: {
+        ...config,
+        filters: { ...config.filters, time: { ...(config.filters.time ?? {}), [column]: { min, max } } },
+      },
+    });
+  },
+
+  clearTimeFilter: (column) => {
+    const config = get().config;
+    if (!config) return;
+    set({ config: { ...config, filters: removeTimeFilter(config.filters, column) } });
+  },
+
   toggleCategoricalFilter: (column, value) => {
     const config = get().config;
     if (!config) return;
@@ -268,7 +295,7 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
     set({ config: { ...config, filters: createEmptyFilters() } });
   },
 
-  applyConfig: (config) => set({ config, selectedRowId: null }),
+  applyConfig: (config) => set({ config, selectedRowId: null, selectedRowIds: [] }),
 
   resetConfig: () => {
     const { dataset, config } = get();
@@ -297,8 +324,10 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
     if (!hidden) {
       const numeric = { ...config.filters.numeric };
       const categorical = { ...config.filters.categorical };
+      const time = { ...(config.filters.time ?? {}) };
       delete numeric[column];
       delete categorical[column];
+      delete time[column];
       const clearAxis = (value: string | null) => (value === column ? null : value);
       set({
         config: {
@@ -312,7 +341,7 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
           twoD: { x: clearAxis(config.twoD.x), y: clearAxis(config.twoD.y) },
           color: config.color.column === column ? { mode: "none", column: null } : config.color,
           size: config.size.column === column ? { enabled: false, column: null } : config.size,
-          filters: { ...config.filters, numeric, categorical },
+          filters: { ...config.filters, numeric, categorical, time },
         },
       });
       return;
@@ -320,7 +349,23 @@ export const useDataStore = create<DataSpaceState>((set, get) => ({
     set({ config: { ...config, hiddenColumns: config.hiddenColumns.filter((name) => name !== column) } });
   },
 
-  selectRow: (id) => set({ selectedRowId: id }),
+  selectRow: (id) =>
+    set({
+      selectedRowId: id,
+      selectedRowIds: id === null ? [] : [id],
+    }),
+
+  selectRows: (ids) =>
+    set({
+      selectedRowIds: [...new Set(ids)],
+      selectedRowId: ids[0] ?? null,
+    }),
+
+  toggleRowSelection: (id) => {
+    const current = get().selectedRowIds;
+    const next = current.includes(id) ? current.filter((value) => value !== id) : [...current, id];
+    set({ selectedRowIds: next, selectedRowId: next[0] ?? null });
+  },
   requestCameraReset: () => set({ cameraResetToken: get().cameraResetToken + 1 }),
 
   setTheme: (theme) => {
@@ -346,6 +391,7 @@ export function resetDataStore(): void {
     issues: [],
     config: null,
     selectedRowId: null,
+    selectedRowIds: [],
     cameraResetToken: 0,
     toast: null,
   });

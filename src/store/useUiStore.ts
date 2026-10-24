@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type InspectorTab = "style" | "filters" | "record";
+export type InspectorTab = "view" | "filters" | "record";
 export type MobilePanel = "viz" | "config" | "data";
 export type DataTab = "preview" | "columns" | "summary";
 
@@ -23,7 +23,7 @@ interface UiState {
 }
 
 export const useUiStore = create<UiState>((set) => ({
-  inspectorTab: "style",
+  inspectorTab: "view",
   setInspectorTab: (inspectorTab) => set({ inspectorTab }),
   dataPanelOpen: true,
   setDataPanelOpen: (dataPanelOpen) => set({ dataPanelOpen }),
@@ -41,7 +41,7 @@ export const useUiStore = create<UiState>((set) => ({
 
 export function resetUiStore(): void {
   useUiStore.setState({
-    inspectorTab: "style",
+    inspectorTab: "view",
     dataPanelOpen: true,
     helpOpen: false,
     importOpen: false,

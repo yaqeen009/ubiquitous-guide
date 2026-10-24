@@ -90,15 +90,15 @@ export function Onboarding() {
             See the shape of your data.
           </h1>
           <p className="mt-4 max-w-lg text-[13.5px] leading-relaxed text-muted">
-            Map three variables into space, link a two-dimensional view, and ask a concrete question: does depth reveal
-            structure that flat charts make hard to see? DataSpace keeps the comparison honest — every point is a row,
-            and both views share the same filters and selection.
+            Open linked scatter, temporal, distribution, correlation, parallel-coordinate, and table views. Ask a
+            concrete question: does depth reveal structure that flat charts make hard to see? DataSpace keeps the
+            comparison honest — every mark maps to real rows, and every open view shares the same filters and selection.
           </p>
 
           <ul className="mt-6 grid max-w-lg gap-3 sm:grid-cols-3">
             {[
               { icon: <Database size={14} />, title: "Your CSV", copy: "Strict parsing, inferred types, missing values kept visible." },
-              { icon: <Layers size={14} />, title: "Linked views", copy: "3D and 2D share filters, color, and selection." },
+              { icon: <Layers size={14} />, title: "Linked views", copy: "Seven registered views share filters, color, and selection." },
               { icon: <ShieldCheck size={14} />, title: "Local only", copy: "No upload, no backend, no tracking." },
             ].map((item) => (
               <li key={item.title} className="rounded-sm border border-border bg-surface p-3">
@@ -135,9 +135,9 @@ export function Onboarding() {
             <h3 className="panel-title mb-2">What happens next</h3>
             <ol className="space-y-1.5">
               {[
-                "Columns are typed as numeric, categorical, date-like, text, or empty.",
-                "Numeric columns become axis, color, and size candidates.",
-                "Axes are mapped automatically; every mapping stays editable.",
+                "Columns are typed as numeric, categorical, date/timestamp, text, or empty.",
+                "A linked 3D + 2D workspace opens when the data supports it.",
+                "Add time series, distributions, correlation, parallel coordinates, or a table from the gallery.",
               ].map((step, index) => (
                 <li key={step} className="flex gap-2 text-[11px] leading-relaxed text-muted">
                   <span className="mono-num text-[10px] text-faint">{String(index + 1).padStart(2, "0")}</span>

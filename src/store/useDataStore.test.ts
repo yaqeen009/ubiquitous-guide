@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDataStore, useDataStore } from "./useDataStore";
 import { resetUiStore, useUiStore } from "./useUiStore";
-import { MIXED_CSV } from "@/test/fixtures";
+import { MIXED_CSV, buildInferenceCsv } from "@/test/fixtures";
 
 function loadFixture(): void {
   useDataStore.getState().loadText(MIXED_CSV, "mixed.csv");
@@ -40,7 +40,7 @@ describe("useDataStore", () => {
     const state = useDataStore.getState();
     expect(state.dataset?.source).toBe("demo");
     expect(state.dataset?.rows).toHaveLength(720);
-    expect(state.dataset?.columns).toHaveLength(10);
+    expect(state.dataset?.columns).toHaveLength(11);
   });
 
   it("updates axes, 2D mappings, layout, color, and display", () => {
@@ -142,6 +142,44 @@ describe("useDataStore", () => {
     expect(useDataStore.getState().selectedRowId).toBe(3);
     useDataStore.getState().selectRow(null);
     expect(useDataStore.getState().selectedRowId).toBeNull();
+  });
+
+  it("supports multi-selection with one primary record", () => {
+    loadFixture();
+    useDataStore.getState().selectRows([1, 3]);
+    expect(useDataStore.getState().selectedRowIds).toEqual([1, 3]);
+    expect(useDataStore.getState().selectedRowId).toBe(1);
+
+    useDataStore.getState().toggleRowSelection(3);
+    expect(useDataStore.getState().selectedRowIds).toEqual([1]);
+    useDataStore.getState().toggleRowSelection(2);
+    expect(useDataStore.getState().selectedRowIds).toEqual([1, 2]);
+    expect(useDataStore.getState().selectedRowId).toBe(1);
+
+    useDataStore.getState().selectRow(4);
+    expect(useDataStore.getState().selectedRowIds).toEqual([4]);
+    expect(useDataStore.getState().selectedRowId).toBe(4);
+  });
+
+  it("keeps selection when filters hide the selected record", () => {
+    loadFixture();
+    useDataStore.getState().selectRows([1, 3]);
+    useDataStore.getState().setSearch("north");
+    expect(useDataStore.getState().selectedRowIds).toEqual([1, 3]);
+    expect(useDataStore.getState().config?.filters.search).toBe("north");
+    useDataStore.getState().clearFilters();
+    expect(useDataStore.getState().selectedRowIds).toEqual([1, 3]);
+  });
+
+  it("applies and clears date-time filters", () => {
+    useDataStore.getState().loadText(buildInferenceCsv(), "typed.csv");
+    useDataStore.getState().setTimeFilter("when", Date.UTC(2024, 0, 5), Date.UTC(2024, 0, 10));
+    expect(useDataStore.getState().config?.filters.time?.when).toEqual({
+      min: Date.UTC(2024, 0, 5),
+      max: Date.UTC(2024, 0, 10),
+    });
+    useDataStore.getState().clearTimeFilter("when");
+    expect(useDataStore.getState().config?.filters.time?.when).toBeUndefined();
   });
 
   it("increments the camera reset token", () => {

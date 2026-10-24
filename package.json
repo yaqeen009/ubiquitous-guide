@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "UbiquitousGuide — a browser-side workspace for exploring multidimensional datasets in linked 3D and 2D views.",
+  "description": "DataSpace by UbiquitousGuide \u2014 a browser-side multiview visual analytics workspace for multidimensional CSV datasets.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

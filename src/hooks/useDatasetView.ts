@@ -17,7 +17,10 @@ export interface DatasetView {
   totalCount: number;
   filteredCount: number;
   selectedRow: DataRow | null;
+  selectedRowIds: number[];
+  selectedRows: DataRow[];
   selectedRowHidden: boolean;
+  hiddenSelectionCount: number;
   selectedIndex: number;
 }
 
@@ -28,6 +31,7 @@ export function useDatasetView(): DatasetView {
   const dataset = useDataStore((state) => state.dataset);
   const config = useDataStore((state) => state.config);
   const selectedRowId = useDataStore((state) => state.selectedRowId);
+  const selectedRowIds = useDataStore((state) => state.selectedRowIds);
   const filters = config?.filters ?? EMPTY_FILTERS;
   const hidden = config?.hiddenColumns ?? EMPTY_HIDDEN;
 
@@ -61,6 +65,18 @@ export function useDatasetView(): DatasetView {
     [filteredRows, selectedRowId],
   );
 
+  const selectedRows = useMemo(() => {
+    if (!dataset || selectedRowIds.length === 0) return [];
+    const selected = new Set(selectedRowIds);
+    return dataset.rows.filter((row) => selected.has(row.id));
+  }, [dataset, selectedRowIds]);
+
+  const hiddenSelectionCount = useMemo(() => {
+    if (selectedRowIds.length === 0) return 0;
+    const visible = new Set(filteredRows.map((row) => row.id));
+    return selectedRowIds.filter((id) => !visible.has(id)).length;
+  }, [filteredRows, selectedRowIds]);
+
   return {
     dataset,
     filteredRows,
@@ -92,7 +108,10 @@ export function useDatasetView(): DatasetView {
     totalCount: dataset?.rows.length ?? 0,
     filteredCount: filteredRows.length,
     selectedRow,
+    selectedRowIds,
+    selectedRows,
     selectedRowHidden: selectedRow !== null && selectedIndex === -1,
+    hiddenSelectionCount,
     selectedIndex,
   };
 }

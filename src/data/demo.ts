@@ -35,6 +35,7 @@ export function createDemoCsv(): string {
     "Station",
     "Region",
     "Zone",
+    "Observed at",
     "PM2.5",
     "NO2",
     "Green cover %",
@@ -82,11 +83,15 @@ export function createDemoCsv(): string {
     const no2Out = index % 83 === 3 ? "" : no2Cell;
 
     const station = `AQ-${String(index + 1).padStart(3, "0")}`;
+    const day = Math.floor(index / 24);
+    const hour = index % 24;
+    const observedAt = `2026-09-${String(day + 1).padStart(2, "0")}T${String(hour).padStart(2, "0")}:00:00Z`;
     lines.push(
       [
         station,
         region,
         zone,
+        observedAt,
         pmCell,
         no2Out,
         round(green),

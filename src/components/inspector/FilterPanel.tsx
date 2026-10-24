@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Filter, Search, X } from "lucide-react";
-import type { DataColumn, NumericFilter, VisualizationConfig } from "@/types";
+import { CalendarRange, Filter, Search, X } from "lucide-react";
+import type { DataColumn, Dataset, NumericFilter, VisualizationConfig } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RangeSlider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { getCategoryOptions, removeCategoricalFilter } from "@/data/filters";
+import { getCategoryOptions, removeCategoricalFilter, rowDateValue } from "@/data/filters";
+import { dateInputValue, formatDateValue, parseDateInput } from "@/data/numeric";
 import { formatNumber } from "@/lib/utils";
 import { useDataStore } from "@/store/useDataStore";
 
@@ -197,27 +198,140 @@ function CategoricalFilterRow({
   );
 }
 
+function TimeFilterRow({
+  column,
+  extent,
+  range,
+  onApply,
+  onClear,
+}: {
+  column: DataColumn;
+  extent: { min: number; max: number };
+  range: NumericFilter | undefined;
+  onApply: (min: number, max: number) => void;
+  onClear: () => void;
+}) {
+  const currentMin = range?.min ?? extent.min;
+  const currentMax = range?.max ?? extent.max;
+  const [draftMin, setDraftMin] = useState(dateInputValue(currentMin));
+  const [draftMax, setDraftMax] = useState(dateInputValue(currentMax));
+
+  useEffect(() => {
+    setDraftMin(dateInputValue(currentMin));
+    setDraftMax(dateInputValue(currentMax));
+  }, [currentMin, currentMax]);
+
+  const commit = () => {
+    const min = parseDateInput(draftMin);
+    const max = parseDateInput(draftMax);
+    if (min === null || max === null) {
+      setDraftMin(dateInputValue(currentMin));
+      setDraftMax(dateInputValue(currentMax));
+      return;
+    }
+    const low = Math.max(extent.min, Math.min(min, max));
+    const high = Math.min(extent.max, Math.max(min, max));
+    if (low <= extent.min && high >= extent.max) {
+      onClear();
+      return;
+    }
+    onApply(low, high);
+  };
+
+  return (
+    <div className="space-y-2 border-t border-border pt-2.5 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-[11.5px] font-medium text-ink-soft" title={column.name}>
+          {column.name}
+        </span>
+        {range ? (
+          <button
+            type="button"
+            className="text-[10.5px] text-accent hover:underline"
+            onClick={onClear}
+            aria-label={`Clear ${column.name} time filter`}
+          >
+            Clear
+          </button>
+        ) : (
+          <span className="text-[10px] text-faint">
+            {formatDateValue(extent.min)} – {formatDateValue(extent.max)}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+        <Input
+          type="date"
+          value={draftMin}
+          min={dateInputValue(extent.min)}
+          max={dateInputValue(extent.max)}
+          aria-label={`${column.name} start date`}
+          onChange={(event) => setDraftMin(event.target.value)}
+          onBlur={commit}
+          className="h-7 px-1.5 text-[11px]"
+        />
+        <span className="text-[10px] text-faint">to</span>
+        <Input
+          type="date"
+          value={draftMax}
+          min={dateInputValue(extent.min)}
+          max={dateInputValue(extent.max)}
+          aria-label={`${column.name} end date`}
+          onChange={(event) => setDraftMax(event.target.value)}
+          onBlur={commit}
+          className="h-7 px-1.5 text-[11px]"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function FilterPanel({
   config,
   numericColumns,
   categoryColumns,
   filteredCount,
   totalCount,
+  dataset,
 }: {
   config: VisualizationConfig;
   numericColumns: DataColumn[];
   categoryColumns: DataColumn[];
   filteredCount: number;
   totalCount: number;
+  dataset?: Dataset;
 }) {
   const setSearch = useDataStore((state) => state.setSearch);
   const setNumericFilter = useDataStore((state) => state.setNumericFilter);
   const clearNumericFilter = useDataStore((state) => state.clearNumericFilter);
+  const setTimeFilter = useDataStore((state) => state.setTimeFilter);
+  const clearTimeFilter = useDataStore((state) => state.clearTimeFilter);
   const toggleCategoricalFilter = useDataStore((state) => state.toggleCategoricalFilter);
   const setFilters = useDataStore((state) => state.setFilters);
   const { filters } = config;
-  const active = Object.keys(filters.numeric).length + Object.values(filters.categorical).filter((values) => values.length > 0).length + (filters.search ? 1 : 0);
+  const active =
+    Object.keys(filters.numeric).length +
+    Object.keys(filters.time ?? {}).length +
+    Object.values(filters.categorical).filter((values) => values.length > 0).length +
+    (filters.search ? 1 : 0);
   const filterableCategories = categoryColumns.filter((column) => column.type === "categorical" || column.type === "date");
+  const dateColumns = categoryColumns.filter((column) => column.type === "date");
+  const dateExtents = useMemo(() => {
+    const extents = new Map<string, { min: number; max: number }>();
+    if (!dataset) return extents;
+    for (const column of dateColumns) {
+      let min: number | null = null;
+      let max: number | null = null;
+      for (const row of dataset.rows) {
+        const value = rowDateValue(row, column);
+        if (value === null) continue;
+        if (min === null || value < min) min = value;
+        if (max === null || value > max) max = value;
+      }
+      if (min !== null && max !== null) extents.set(column.name, { min, max });
+    }
+    return extents;
+  }, [dataset, dateColumns]);
 
   return (
     <div className="space-y-3 p-3">
@@ -284,6 +398,19 @@ export function FilterPanel({
               </button>
             </Badge>
           ))}
+          {Object.entries(filters.time ?? {}).map(([name, range]) => (
+            <Badge key={`time-${name}`} tone="accent" className="normal-case tracking-normal">
+              {name}: {formatDateValue(range.min)}–{formatDateValue(range.max)}
+              <button
+                type="button"
+                onClick={() => clearTimeFilter(name)}
+                aria-label={`Remove ${name} time filter`}
+                className="ml-0.5 hover:text-ink"
+              >
+                <X size={10} />
+              </button>
+            </Badge>
+          ))}
           {Object.entries(filters.categorical)
             .filter(([, values]) => values.length > 0)
             .map(([name, values]) => (
@@ -322,6 +449,30 @@ export function FilterPanel({
               onClear={() => clearNumericFilter(column.name)}
             />
           ))
+        )}
+      </section>
+
+      <section className="space-y-2.5 border-t border-border pt-3">
+        <h4 className="panel-title flex items-center gap-1.5">
+          <CalendarRange size={11} /> Time ranges
+        </h4>
+        {dateColumns.length === 0 || !dataset ? (
+          <p className="text-[11px] text-faint">No date/timestamp columns detected. Use year-first formats such as 2026-10-24.</p>
+        ) : (
+          dateColumns.map((column) => {
+            const extent = dateExtents.get(column.name);
+            if (!extent) return <p key={column.name} className="text-[11px] text-faint">{column.name}: no valid dates.</p>;
+            return (
+              <TimeFilterRow
+                key={column.name}
+                column={column}
+                extent={extent}
+                range={filters.time?.[column.name]}
+                onApply={(min, max) => setTimeFilter(column.name, min, max)}
+                onClear={() => clearTimeFilter(column.name)}
+              />
+            );
+          })
         )}
       </section>
 

@@ -2,7 +2,7 @@ import { Box, SlidersHorizontal, Table2 } from "lucide-react";
 import type { DatasetView } from "@/hooks/useDatasetView";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
-import { VizStage } from "@/components/viz/VizStage";
+import { WorkspaceStage } from "@/components/workspace/WorkspaceStage";
 import { Inspector } from "@/components/inspector/Inspector";
 import { DataPanel } from "@/components/data/DataPanel";
 import { DatasetNotice } from "@/components/data/DatasetNotice";
@@ -48,11 +48,11 @@ export function Workspace({ view }: { view: DatasetView }) {
           <div className="flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:flex-row">
             <div
               className={cn(
-                "flex min-h-[470px] flex-col lg:min-h-0 lg:flex-1",
+                "flex min-h-[560px] flex-col lg:min-h-0 lg:flex-1",
                 mobilePanel !== "viz" && "hidden lg:flex",
               )}
             >
-              <VizStage view={view} />
+              <WorkspaceStage view={view} />
             </div>
             <div
               className={cn(

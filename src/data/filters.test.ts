@@ -13,7 +13,7 @@ import {
 } from "./filters";
 import { MISSING_CATEGORY } from "./colors";
 import { parseCsv } from "./parse";
-import { MIXED_CSV } from "@/test/fixtures";
+import { MIXED_CSV, buildInferenceCsv } from "@/test/fixtures";
 
 const { dataset } = parseCsv(MIXED_CSV, "mixed.csv");
 
@@ -91,6 +91,20 @@ describe("applyFilters", () => {
       categorical: { Region: ["West"] },
     };
     expect(applyFilters(dataset, filters)).toHaveLength(1);
+  });
+
+  it("applies inclusive date-time ranges and counts them as filters", () => {
+    const typed = parseCsv(buildInferenceCsv(), "typed.csv").dataset;
+    const low = Date.UTC(2024, 0, 5);
+    const high = Date.UTC(2024, 0, 10);
+    const filters = { ...createEmptyFilters(), time: { when: { min: low, max: high } } };
+    expect(activeFilterCount(filters)).toBe(1);
+    const rows = applyFilters(typed, filters);
+    expect(rows).toHaveLength(6);
+    expect(rows.every((row) => {
+      const time = row.dates?.[4] ?? null;
+      return time !== null && time >= low && time <= high;
+    })).toBe(true);
   });
 
   it("ignores filters for columns that do not exist", () => {

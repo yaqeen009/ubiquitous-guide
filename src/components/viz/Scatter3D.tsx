@@ -181,21 +181,23 @@ function SelectionMarker({
   point,
   theme,
   pointSize,
+  primary = true,
 }: {
   point: ScatterPoint;
   theme: "light" | "dark";
   pointSize: number;
+  primary?: boolean;
 }) {
-  const radius = 0.018 + pointSize * 0.0035;
+  const radius = (primary ? 0.018 : 0.011) + pointSize * (primary ? 0.0035 : 0.0022);
   return (
     <group position={[point.x, point.y, point.z]}>
       <mesh>
         <sphereGeometry args={[radius * (1 + point.radius * 0.3), 16, 16]} />
-        <meshBasicMaterial color={theme === "dark" ? "#ffffff" : "#141412"} />
+        <meshBasicMaterial color={theme === "dark" ? "#ffffff" : "#141412"} transparent={!primary} opacity={primary ? 1 : 0.6} />
       </mesh>
       <mesh>
         <sphereGeometry args={[radius * 2.4 * point.radius, 12, 12]} />
-        <meshBasicMaterial color={ACCENT[theme]} wireframe transparent opacity={0.9} />
+        <meshBasicMaterial color={ACCENT[theme]} wireframe transparent opacity={primary ? 0.9 : 0.55} />
       </mesh>
     </group>
   );
@@ -230,17 +232,25 @@ function CameraRig({ resetToken }: { resetToken: number }) {
   );
 }
 
-export function Scatter3D({ encoding }: { encoding: ScatterEncoding }) {
+export function Scatter3D({
+  encoding,
+  axes,
+}: {
+  encoding: ScatterEncoding;
+  axes?: { x: string | null; y: string | null; z: string | null };
+}) {
   const theme = useDataStore((state) => state.theme);
   const config = useDataStore((state) => state.config);
   const selectedRowId = useDataStore((state) => state.selectedRowId);
+  const selectedRowIds = useDataStore((state) => state.selectedRowIds);
   const selectRow = useDataStore((state) => state.selectRow);
   const resetToken = useDataStore((state) => state.cameraResetToken);
   const setInspectorTab = useUiStore((state) => state.setInspectorTab);
   const [hover, setHover] = useState<HoverState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectedPoint = encoding.points.find((point) => point.row.id === selectedRowId) ?? null;
+  const selectedIds = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
+  const selectedPoints = encoding.points.filter((point) => selectedIds.has(point.row.id));
   const hoveredPoint = hover ? { ...hover.point } : null;
 
   const handleHover = (next: HoverState | null) => {
@@ -258,9 +268,9 @@ export function Scatter3D({ encoding }: { encoding: ScatterEncoding }) {
 
   const axesLabel = config
     ? [
-        { axis: "X", column: config.axes.x, color: "#d55e00" },
-        { axis: "Y", column: config.axes.y, color: "#009e73" },
-        { axis: "Z", column: config.axes.z, color: "#0072b2" },
+        { axis: "X", column: axes?.x ?? config.axes.x, color: "#d55e00" },
+        { axis: "Y", column: axes?.y ?? config.axes.y, color: "#009e73" },
+        { axis: "Z", column: axes?.z ?? config.axes.z, color: "#0072b2" },
       ]
     : [];
 
@@ -295,8 +305,16 @@ export function Scatter3D({ encoding }: { encoding: ScatterEncoding }) {
             setInspectorTab("record");
           }}
         />
-        {selectedPoint ? <SelectionMarker point={selectedPoint} theme={theme} pointSize={config?.display.pointSize ?? 4} /> : null}
-        {hoveredPoint && !selectedPoint ? (
+        {selectedPoints.map((point) => (
+          <SelectionMarker
+            key={point.row.id}
+            point={point}
+            theme={theme}
+            pointSize={config?.display.pointSize ?? 4}
+            primary={point.row.id === selectedRowId}
+          />
+        ))}
+        {hoveredPoint && !selectedIds.has(hoveredPoint.row.id) ? (
           <mesh position={[hoveredPoint.x, hoveredPoint.y, hoveredPoint.z]}>
             <sphereGeometry args={[0.022 + (config?.display.pointSize ?? 4) * 0.004, 12, 12]} />
             <meshBasicMaterial color={theme === "dark" ? "#ffffff" : "#141412"} transparent opacity={0.5} />
